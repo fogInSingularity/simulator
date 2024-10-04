@@ -1,0 +1,7 @@
+simulator
+build/
+__pycache__
+analyze.mk
+debug.mk
+release.mk
+makefile
