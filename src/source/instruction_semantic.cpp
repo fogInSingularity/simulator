@@ -4,10 +4,11 @@
 #include <climits>
 #include <cstring>
 
+#include "logger.hpp"
+
 #include "cpu_defs.hpp"
 #include "instructions.hpp"
 #include "cpu.hpp"
-#include "logging.h"
 
 // static ---------------------------------------------------------------------
 

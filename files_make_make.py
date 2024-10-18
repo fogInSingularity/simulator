@@ -10,13 +10,13 @@ EXE_ARGS =
 EXE_LOG = 2>log
 """
 
-include = "\nINCLUDE = -Isrc/include/ -Icutils/include/\n"
+include = "\nINCLUDE = -Isrc/include/ -Iliblogger/include/\n"
 
-cpp_files = "src/source/main.cpp src/source/cpu.cpp src/source/cpu_memory.cpp src/source/cpu_defs.cpp src/source/instruction_semantic.cpp"
-cpp_objects = "build/main.o build/cpu.o build/cpu_memory.o build/cpu_defs.o build/instruction_semantic.o" 
+cpp_files = "src/source/main.cpp src/source/cpu.cpp src/source/cpu_memory.cpp src/source/cpu_defs.cpp src/source/instruction_semantic.cpp liblogger/logger.cpp"
+cpp_objects = "build/main.o build/cpu.o build/cpu_memory.o build/cpu_defs.o build/instruction_semantic.o build/logger.o" 
 
-с_files = "cutils/source/logging.c"
-c_objects = "build/logging.o"
+с_files = ""
+c_objects = ""
 
 debug_target = """debug: all
 all: {} {}

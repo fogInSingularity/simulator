@@ -2,6 +2,8 @@
 
 #include <cassert>
 
+#include "logger.hpp"
+
 #ifndef TOSTR
 #define TOSTR(x) #x
 #endif // TOSTR

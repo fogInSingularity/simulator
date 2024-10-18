@@ -4,10 +4,11 @@
 #include <cstdint>
 #include <cstring>
 
+#include "logger.hpp"
+
 #include "cpu_defs.hpp"
 #include "cpu_memory.hpp"
 #include "instructions.hpp"
-#include "logging.h"
 #include "instruction_semantic.hpp"
 
 // static ---------------------------------------------------------------------
@@ -94,6 +95,8 @@ void Cpu::SetPc(const Register new_pc) {
 Register Cpu::GetRegisterValue(const size_t register_id) const {
     assert(register_id < kNumberOfRegisters);
 
+    LogFunctionEntry();
+
     if (register_id == 0) {
         return 0;
     }
@@ -104,6 +107,8 @@ Register Cpu::GetRegisterValue(const size_t register_id) const {
 void Cpu::SetRegisterValue(const size_t register_id, const Register new_value) {
     assert(register_id < kNumberOfRegisters);
 
+    LogFunctionEntry();
+
     if (register_id == 0) { // NOTE mb use constant for x0
         return ;
     } 
@@ -112,10 +117,14 @@ void Cpu::SetRegisterValue(const size_t register_id, const Register new_value) {
 }
 
 bool Cpu::GetIsFinished() const {
+    LogFunctionEntry();
+    
     return is_finished_;    
 }
 
 void Cpu::SetIsFinished(const bool is_finished) {
+    LogFunctionEntry();
+
     is_finished_ = is_finished;
 }
 

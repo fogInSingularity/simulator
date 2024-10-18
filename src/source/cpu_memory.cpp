@@ -5,8 +5,9 @@
 #include <string>
 #include <cassert>
 
+#include "logger.hpp"
+
 #include "cpu_defs.hpp"
-#include "logging.h"
 
 // static ---------------------------------------------------------------------
 
