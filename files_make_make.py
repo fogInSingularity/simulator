@@ -12,8 +12,8 @@ EXE_LOG = 2>log
 
 include = "\nINCLUDE = -Isrc/include/ -Icutils/include/\n"
 
-cpp_files = "src/source/main.cpp "
-cpp_objects = "build/main.o "
+cpp_files = "src/source/main.cpp src/source/cpu.cpp src/source/cpu_memory.cpp src/source/cpu_defs.cpp src/source/instruction_semantic.cpp"
+cpp_objects = "build/main.o build/cpu.o build/cpu_memory.o build/cpu_defs.o build/instruction_semantic.o" 
 
 с_files = "cutils/source/logging.c"
 c_objects = "build/logging.o"

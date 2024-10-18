@@ -1,7 +1,12 @@
 simulator
+simulator.log
 build/
 __pycache__
 analyze.mk
 debug.mk
 release.mk
 makefile
+.cache/
+compile_commands.json
+riscv_bin
+test/*.out
