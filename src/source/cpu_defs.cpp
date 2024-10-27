@@ -9,6 +9,8 @@
 #endif // TOSTR
 
 const char* CpuErrorsToStr(CpuErrors error) {
+    LogFunctionEntry();
+
     switch (error) {
         case CpuErrors::kOk:            return TOSTR(CpuErrors::kOk);
         case CpuErrors::kBadAlloc:      return TOSTR(CpuErrors::kBadAlloc);

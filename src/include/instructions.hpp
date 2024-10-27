@@ -22,6 +22,41 @@ struct ITypeInstr {
     Register imm    : 12;
 };
 
+struct STypeInstr {
+    Register opcode   : 7;
+    Register imm_4_0  : 5;
+    Register funct3   : 3;
+    Register rs1      : 5;
+    Register rs2      : 5;
+    Register imm_11_5 : 7;
+};
+
+struct BTypeInstr {
+    Register opcode   : 7;
+    Register imm_11   : 1;
+    Register imm_4_1  : 4;
+    Register funct3   : 3;
+    Register rs1      : 5;
+    Register rs2      : 5;
+    Register imm_10_5 : 6;
+    Register imm_12   : 1;
+};
+
+struct UTypeInstr {
+    Register opcode : 7;
+    Register rd     : 5;
+    Register imm    : 20;
+};
+
+struct JTypeInstr {
+    Register opcode    : 7;
+    Register rd        : 5;
+    Register imm_19_12 : 8; 
+    Register imm_11    : 1;
+    Register imm_10_1  : 10;
+    Register imm_20    : 1;
+};
+
 // opcodes --------------------------------------------------------------------
 
 enum class InstructionOpcodes : Register {
@@ -65,14 +100,15 @@ enum class StoreInstruction : Register {
 };
 
 enum class ArithmImmInstruction : Register {
-    kAddi  = 0b000,
-    kSlti  = 0b010,
-    kSltiu = 0b011,
-    kXori  = 0b100,
-    kOri   = 0b110,
-    kAndi  = 0b111,
-
-    // FIXME add shifts
+    kAddi     = 0b000,
+    kSlti     = 0b010,
+    kSltiu    = 0b011,
+    kXori     = 0b100,
+    kOri      = 0b110,
+    kAndi     = 0b111,
+    
+    kSlli     = 0b001,
+    kSraiSrli = 0b101,
 };
 
 enum class ArithmRegInstruction : Register {
@@ -110,11 +146,17 @@ enum class ArithmRegInstructionSpecial : Register {
     kAnd  = 0b000'0000,
 };
 
+enum ArithmImmShiftRight : Register {
+    kLogical = 0b000'0000,
+    kArithm  = 0b010'0000,
+};
+
 // Errors ---------------------------------------------------------------------
 
 enum class InstructionError {
     kOk                 = 0,
     kUnknownInstruction = 1,
+    kMisalignedAddress  = 2,
 };
 
 #endif // INSTRUCTIONS_HPP_

@@ -17,6 +17,31 @@ class Cpu {
     Register Fetch();
     InstructionOpcodes Decode(const Register encoded_instr) const;
     InstructionError Execute(const Register instr, const InstructionOpcodes opcode);
+    
+    // instructions: 
+    InstructionError InstructionLui(const Register instr);
+    InstructionError InstructionAuipc(const Register instr);
+    InstructionError InstructionJal(const Register instr);
+    InstructionError InstructionJalr(const Register instr);
+    InstructionError InstructionBranchInstr(const Register instr);
+    InstructionError InstructionLoadInstr(const Register instr);
+    InstructionError InstructionStoreInstr(const Register instr);
+    InstructionError InstructionArithmImmInstr(const Register instr);
+    InstructionError InstructionArithmRegInstr(const Register instr);
+    InstructionError InstructionFenceInstr(const Register instr);
+    InstructionError InstructionSystemInstr(const Register instr);
+    // sub instructions:
+    InstructionError InstructionArithmImmAddi(const ITypeInstr i_type_instr);
+    InstructionError InstructionArithmImmSlti(const ITypeInstr i_type_instr);
+    InstructionError InstructionArithmImmSltiu(const ITypeInstr i_type_instr);
+    InstructionError InstructionArithmImmXori(const ITypeInstr i_type_instr);
+    InstructionError InstructionArithmImmOri(const ITypeInstr i_type_instr);
+    InstructionError InstructionArithmImmAndi(const ITypeInstr i_type_instr);
+    InstructionError InstructionArithmImmSlli(const ITypeInstr i_type_instr);
+    InstructionError InstructionArithmImmSraiSrli(const ITypeInstr i_type_instr);
+
+    InstructionError InstructionArithmRegAddSub(const RTypeInstr r_type_instr);
+  
   public:
     Cpu(const char* const executable_name);
     ~Cpu() = default;
@@ -30,8 +55,8 @@ class Cpu {
     bool GetIsFinished() const;
     void SetIsFinished(const bool is_finished);
 
-    Register ReadFromMemory(const Address address) const;
-    void WriteToMemory(const Register data, const Address address);
+    // Register ReadFromMemory(const Address address) const;
+    // void WriteToMemory(const Register data, const Address address);
 
     void Dump() const;
     

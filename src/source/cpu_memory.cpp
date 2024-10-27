@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <cstdio>
-#include <string>
 #include <cassert>
 
 #include "logger.hpp"
@@ -15,7 +14,7 @@ static size_t GetFileSize(FILE* file);
 
 // Memory ---------------------------------------------------------------------
 
-Memory::Memory(const char* executable_name) 
+Memory::Memory(const char* const executable_name) 
 {
     assert(executable_name != nullptr);
 
@@ -63,24 +62,60 @@ void Memory::Dump() const {
     }
 }
 
-Register Memory::ReadFromMemory(Address address) const {
+uint32_t Memory::ReadFromMemory32b(const MemAddress address) const {
     LogFunctionEntry();
    
     LogVariable("%u", address);
 
-    return *reinterpret_cast<Register*>(memory_ + address);
+    return *reinterpret_cast<uint32_t*>(memory_ + address);
 }
 
-void Memory::WriteToMemory(Register data, Address address) {
+uint16_t Memory::ReadFromMemory16b(const MemAddress address) const {
+    LogFunctionEntry();
+   
+    LogVariable("%u", address);
+
+    return *reinterpret_cast<uint16_t*>(memory_ + address);
+}
+
+uint8_t Memory::ReadFromMemory8b(const MemAddress address) const {
+    LogFunctionEntry();
+   
+    LogVariable("%u", address);
+
+    return *reinterpret_cast<uint8_t*>(memory_ + address);
+}
+
+void Memory::WriteToMemory32b(const uint32_t data, const MemAddress address) {
     LogFunctionEntry();
 
     LogVariable("%u", data);
     LogVariable("%u", address);
 
-    *reinterpret_cast<Register*>(memory_ + address) = data;
+    *reinterpret_cast<uint32_t*>(memory_ + address) = data;
+}
+
+void Memory::WriteToMemory16b(const uint16_t data, const MemAddress address) {
+    LogFunctionEntry();
+
+    LogVariable("%u", data);
+    LogVariable("%u", address);
+
+    *reinterpret_cast<uint16_t*>(memory_ + address) = data;
+}
+
+void Memory::WriteToMemory8b(const uint8_t data, const MemAddress address) {
+    LogFunctionEntry();
+
+    LogVariable("%u", data);
+    LogVariable("%u", address);
+
+    *reinterpret_cast<uint8_t*>(memory_ + address) = data;
 }
 
 size_t Memory::GetExecutableSize() const {
+    LogFunctionEntry();
+
     return executable_size_;
 }
 
@@ -88,6 +123,8 @@ size_t Memory::GetExecutableSize() const {
 
 static size_t GetFileSize(FILE* file) {
     assert(file != nullptr);
+
+    LogFunctionEntry();
 
     fseek(file, 0, SEEK_END);
     
