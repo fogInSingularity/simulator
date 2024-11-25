@@ -1,3 +1,6 @@
 [submodule "liblogger"]
 	path = liblogger
 	url = https://github.com/fogInSingularity/liblogger.git
+[submodule "ELFIO"]
+	path = ELFIO
+	url = https://github.com/serge1/ELFIO.git

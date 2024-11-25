@@ -22,7 +22,7 @@ ASAN_FLAGS = -fsanitize=address,bool,bounds,enum,float-cast-overflow,float-divid
 
 O_LEVEL = -O2
 MARCH = -march=znver1
-LIBRARY = -lm -lsfml-graphics -lsfml-window -lsfml-system 
+LIBRARY = -lm
 #-lpng 
 # -lglfw -lGL -lX11 -lpthread -lXrandr -lXi
 

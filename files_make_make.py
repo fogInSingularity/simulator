@@ -10,7 +10,7 @@ EXE_ARGS =
 EXE_LOG = 2>log
 """
 
-include = "\nINCLUDE = -Isrc/include/ -Iliblogger/\n"
+include = "\nINCLUDE = -Isrc/include/ -Iliblogger/ -IELFIO/\n"
 
 cpp_files = "src/source/main.cpp src/source/cpu.cpp src/source/cpu_memory.cpp src/source/cpu_defs.cpp liblogger/logger.cpp"
 cpp_objects = "build/main.o build/cpu.o build/cpu_memory.o build/cpu_defs.o build/logger.o" 

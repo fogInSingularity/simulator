@@ -3,6 +3,8 @@
 
 #include <cstdlib>
 
+#include "elfio/elfio.hpp"
+
 #include "cpu_defs.hpp"
 #include "cpu_memory.hpp"
 #include "instructions.hpp"
@@ -30,20 +32,9 @@ class Cpu {
     InstructionError InstructionArithmRegInstr(const Register instr);
     InstructionError InstructionFenceInstr(const Register instr);
     InstructionError InstructionSystemInstr(const Register instr);
-    // sub instructions:
-    InstructionError InstructionArithmImmAddi(const ITypeInstr i_type_instr);
-    InstructionError InstructionArithmImmSlti(const ITypeInstr i_type_instr);
-    InstructionError InstructionArithmImmSltiu(const ITypeInstr i_type_instr);
-    InstructionError InstructionArithmImmXori(const ITypeInstr i_type_instr);
-    InstructionError InstructionArithmImmOri(const ITypeInstr i_type_instr);
-    InstructionError InstructionArithmImmAndi(const ITypeInstr i_type_instr);
-    InstructionError InstructionArithmImmSlli(const ITypeInstr i_type_instr);
-    InstructionError InstructionArithmImmSraiSrli(const ITypeInstr i_type_instr);
-
-    InstructionError InstructionArithmRegAddSub(const RTypeInstr r_type_instr);
-  
+ 
   public:
-    Cpu(const char* const executable_name);
+    Cpu(const ELFIO::elfio& elf);
     ~Cpu() = default;
 
     Register GetPc() const;

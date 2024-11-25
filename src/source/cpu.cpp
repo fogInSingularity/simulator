@@ -1,10 +1,12 @@
 #include "cpu.hpp"
 
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <climits>
-#include <sys/types.h>
+
+#include "elfio/elfio.hpp"
 
 #include "logger.hpp"
 
@@ -25,18 +27,25 @@ static IRegister SignExtension(const Register uvalue, const size_t starting_bit)
 static IRegister RegToIReg(const Register uvalue);
 static Register IRegToReg(const IRegister value);
 static Register ArithmRightShift(const Register value, const size_t shift);
-    
+
+static const char* OpcodeToInstrMnemotic(InstructionOpcodes instr_opcode);
+
 // Cpu private ----------------------------------------------------------------
 
 Register Cpu::Fetch() {
     LogFunctionEntry();
+
+    if (pc_ == 0xDED) {
+        is_finished_ = true;
+        return 0;
+    }
 
     if (pc_ >= kMemorySize) {
         is_finished_ = true;
         return 0;
     }
 
-    // FIXME if pc_ % 4 != 0?
+    // NOTE if pc_ % 4 != 0?
 
     Register read_mem = memory_.ReadFromMemory32b(pc_);
     LogVariable("%u", read_mem);
@@ -49,7 +58,7 @@ InstructionOpcodes Cpu::Decode(const Register encoded_instr) const {
 
     InstructionOpcodes opcode_instr_value = static_cast<InstructionOpcodes>(encoded_instr & kOpcodeMask); 
 
-    LogVariable("%x", static_cast<Register>(opcode_instr_value));
+    LogVariable("%s", OpcodeToInstrMnemotic(opcode_instr_value));
 
     return opcode_instr_value;
 }
@@ -57,8 +66,8 @@ InstructionOpcodes Cpu::Decode(const Register encoded_instr) const {
 InstructionError Cpu::Execute(const Register instr, const InstructionOpcodes opcode) {
     LogFunctionEntry();
 
-    LogVariable("%x", instr);
-    LogVariable("%x", static_cast<Register>(opcode));
+    LogVariable("0x%x", instr);
+    LogVariable("0x%x", static_cast<Register>(opcode));
 
     switch (opcode) {
         case InstructionOpcodes::kLui:            return InstructionLui(instr); // +
@@ -81,15 +90,19 @@ InstructionError Cpu::Execute(const Register instr, const InstructionOpcodes opc
 
 // Cpu public -----------------------------------------------------------------
 
-Cpu::Cpu(const char* const executable_name) 
-    : memory_(executable_name)
+Cpu::Cpu(const ELFIO::elfio& elf) 
+    : memory_(elf)
 {
-    assert(executable_name != nullptr);
-
     LogFunctionEntry();
 
     memset(registers_, 0, sizeof(registers_));
-    pc_ = 0;
+    const size_t kStackPointerIndex = 2;
+    registers_[kStackPointerIndex] = memory_.GetMemorySize() - sizeof(Register);
+
+    const size_t kRetAddrIndex = 1;
+    registers_[kRetAddrIndex] = 0xDED;
+ 
+    pc_ = elf.get_entry();
     is_finished_ = false;
 }
 
@@ -158,15 +171,19 @@ void Cpu::Dump() const {
 
     Log("\n\n");
 
-    LogVariable("%u", pc_);
+    LogVariable("0x%x", pc_);
 
     for (size_t i = 0; i < kNumberOfRegisters; i++) {
-        Log("Register x%lu: %u\n", i, registers_[i]);
+        Log("Register x%lu: 0x%x\n", i, registers_[i]);
     } 
 
     Log("Has finished: %s\n", is_finished_ ? "true" : "false");
 
-    memory_.Dump();
+    Log("pc dump:\n");
+    memory_.Dump(pc_ - 160, pc_ + 160);
+
+    Log("stack pointer dump:\n");
+    memory_.Dump(GetRegisterValue(2) - 48, memory_.GetMemorySize()); // FIXME
 
     Log("\n\n");
 }
@@ -174,13 +191,15 @@ void Cpu::Dump() const {
 void Cpu::ExecuteBin() {
     LogFunctionEntry();
  
-    while (!is_finished_ && pc_ < memory_.GetExecutableSize()) {
+    size_t exec_end = memory_.GetExecutableEnd();
+
+    while (!is_finished_ && pc_ < exec_end) {
         Register instr = Fetch();
         InstructionOpcodes instruction = Decode(instr);
         InstructionError instr_error = Execute(instr, instruction);
         LogVariable("%u", static_cast<Register>(instr_error));
 
-        // Dump(); // FIXME
+        Dump(); // FIXME
     }
 }
 
@@ -224,9 +243,9 @@ InstructionError Cpu::InstructionJal(const Register instr) {
 
                 // multiples of 2 bytes
     Register offset = (static_cast<Register>(j_type_instr.imm_10_1 << 1)
-                       + (static_cast<Register>(j_type_instr.imm_11 << 11)) 
-                       + (static_cast<Register>(j_type_instr.imm_19_12 << 12)) 
-                       + (static_cast<Register>(j_type_instr.imm_20 << 20)));
+                      + (static_cast<Register>(j_type_instr.imm_11 << 11)) 
+                      + (static_cast<Register>(j_type_instr.imm_19_12 << 12)) 
+                      + (static_cast<Register>(j_type_instr.imm_20 << 20)));
 
     if (offset % sizeof(Register)) { return InstructionError::kMisalignedAddress; }
 
@@ -245,7 +264,7 @@ InstructionError Cpu::InstructionJalr(const Register instr) {
 
     const size_t imm_size_bit = 12; // bit
     pc_ = GetRegisterValue(i_type_instr.rs1) 
-          + (SignExtension(i_type_instr.imm, imm_size_bit - 1) & (~1)); // NOTE md +=?
+          + (SignExtension(i_type_instr.imm, imm_size_bit - 1ull) & (~1u)); // NOTE md +=?
 
     return InstructionError::kOk;
 }
@@ -276,7 +295,13 @@ InstructionError Cpu::InstructionBranchInstr(const Register instr) {
             return InstructionError::kUnknownInstruction;
     }
 
-    if (!condition) { return InstructionError::kOk; }
+    if (!condition) { 
+        Log("Branch not taken\n"); 
+        pc_ += sizeof(Register);
+
+        return InstructionError::kOk; 
+    }
+    Log("Branch taken\n");
 
     Register offset = (static_cast<Register>(b_type_instr.imm_4_1) << 1) 
                       + (static_cast<Register>(b_type_instr.imm_11) << 11) 
@@ -288,8 +313,9 @@ InstructionError Cpu::InstructionBranchInstr(const Register instr) {
     }
 
     const size_t imm_size_bit = 12; // bit
-    pc_ += IRegToReg(SignExtension(offset, imm_size_bit - 1));
-
+    Register pc_offset = IRegToReg(SignExtension(offset, imm_size_bit - 1));
+    LogVariable("%u", pc_offset);
+    pc_ += pc_offset; // NOTE i dont know why +4
     return InstructionError::kOk;
 }
 
@@ -325,10 +351,12 @@ InstructionError Cpu::InstructionLoadInstr(const Register instr) {
         case LoadInstruction::kLbu: {
             loaded_value = memory_.ReadFromMemory8b(address);
         }
+        break;
 
         case LoadInstruction::kLhu: {
             loaded_value = memory_.ReadFromMemory16b(address);
         }
+        break;
 
         default:
             Log("Unknown instrucion\n");
@@ -336,6 +364,8 @@ InstructionError Cpu::InstructionLoadInstr(const Register instr) {
     }
 
     SetRegisterValue(i_type_instr.rd, loaded_value);
+
+    pc_ += sizeof(Register);
 
     return InstructionError::kOk;
 }
@@ -347,24 +377,24 @@ InstructionError Cpu::InstructionStoreInstr(const Register instr) {
 
     Register value_to_store = GetRegisterValue(s_type_instr.rs2);
 
-    Register offset = s_type_instr.imm_4_0 + (s_type_instr.imm_11_5 << 5);
+    Register offset = s_type_instr.imm_4_0 + (s_type_instr.imm_11_5 << 5u);
 
     const size_t imm_size_bit = 12; // bit
     Address address = GetRegisterValue(s_type_instr.rs1) + SignExtension(offset, imm_size_bit - 1);
 
     switch (static_cast<StoreInstruction>(s_type_instr.funct3)) {
         case StoreInstruction::kSb: {
-            memory_.WriteToMemory8b(static_cast<uint8_t>(value_to_store, offset), address);
+            memory_.WriteToMemory8b(static_cast<uint8_t>(value_to_store), address);
         }
         break;
         
         case StoreInstruction::kSh: {
-            memory_.WriteToMemory16b(static_cast<uint16_t>(value_to_store, offset), address);
+            memory_.WriteToMemory16b(static_cast<uint16_t>(value_to_store), address);
         }
         break;
 
         case StoreInstruction::kSw: {
-            memory_.WriteToMemory32b(static_cast<uint32_t>(value_to_store, offset), address);
+            memory_.WriteToMemory32b(static_cast<uint32_t>(value_to_store), address);
         }
         break;
 
@@ -372,6 +402,8 @@ InstructionError Cpu::InstructionStoreInstr(const Register instr) {
             Log("Unknown instrucion");
             return InstructionError::kUnknownInstruction;
     }
+
+    pc_ += sizeof(Register);
 
     return InstructionError::kOk;
 }
@@ -381,21 +413,78 @@ InstructionError Cpu::InstructionArithmImmInstr(const Register instr) {
 
     ITypeInstr i_type_instr = GetITypeInstr(instr);
 
+    Register result = 0;
+    
+    const size_t imm_size_bit = 12; // bit
+    Register imm = IRegToReg(SignExtension(i_type_instr.imm, imm_size_bit - 1));
+    Register reg_value = GetRegisterValue(i_type_instr.rs1);
+
     switch (static_cast<ArithmImmInstruction>(i_type_instr.funct3)) {
-        case ArithmImmInstruction::kAddi:     return InstructionArithmImmAddi(i_type_instr);
-        case ArithmImmInstruction::kSlti:     return InstructionArithmImmSlti(i_type_instr);
-        case ArithmImmInstruction::kSltiu:    return InstructionArithmImmSltiu(i_type_instr);
-        case ArithmImmInstruction::kXori:     return InstructionArithmImmXori(i_type_instr);
-        case ArithmImmInstruction::kOri:      return InstructionArithmImmOri(i_type_instr);
-        case ArithmImmInstruction::kAndi:     return InstructionArithmImmAndi(i_type_instr);
+        case ArithmImmInstruction::kAddi:
+            result = imm + reg_value;
+            break;    
 
-        case ArithmImmInstruction::kSlli:     return InstructionArithmImmSlli(i_type_instr);
-        case ArithmImmInstruction::kSraiSrli: return InstructionArithmImmSraiSrli(i_type_instr);
+        case ArithmImmInstruction::kSlti:
+            result = RegToIReg(reg_value) < RegToIReg(imm) ? 1 : 0;
+            break;
 
+        case ArithmImmInstruction::kSltiu:
+            result = reg_value < imm ? 1 : 0;
+            break;
+
+        case ArithmImmInstruction::kXori:
+            result = reg_value ^ imm;
+            break;
+
+        case ArithmImmInstruction::kOri:
+            result = reg_value | imm;
+            break;
+
+        case ArithmImmInstruction::kAndi:
+            result = reg_value & imm;
+            break;
+
+        case ArithmImmInstruction::kSlli: {
+            const size_t shmat_width = 5;
+            if ((i_type_instr.imm >> shmat_width) != 0) { return InstructionError::kUnknownInstruction; }
+
+            const Register shmat_mask = 0b1'1111;
+            Register shmat = imm & shmat_mask;
+
+            result = reg_value << shmat;
+        }
+        break;
+
+        case ArithmImmInstruction::kSraiSrli: {
+            const size_t shmat_width = 5;
+            ArithmImmShiftRight shift_type = static_cast<ArithmImmShiftRight>(imm >> shmat_width);
+                
+            const Register shmat_mask = 0b1'1111;
+            Register shmat = imm & shmat_mask;
+
+            switch (shift_type) {
+                case ArithmImmShiftRight::kArithm:
+                    result = reg_value >> shmat;
+                    break;
+                case ArithmImmShiftRight::kLogical:
+                    result = ArithmRightShift(reg_value, shmat);
+                    break;
+                default:
+                    Log("Unknown instrucion\n");
+                    assert("unknown instruction"); 
+                    return InstructionError::kUnknownInstruction;
+            }
+        }
+        break;
+            
         default:
             Log("Unknown instrucion\n");
             return InstructionError::kUnknownInstruction;
     }
+
+    SetRegisterValue(i_type_instr.rd, result);
+
+    pc_ += sizeof(Register);
 
     return InstructionError::kOk;
 }
@@ -404,22 +493,80 @@ InstructionError Cpu::InstructionArithmRegInstr(const Register instr) {
     LogFunctionEntry();
 
     RTypeInstr r_type_instr = GetRTypeInstr(instr);
+
+    Register rs1_value = GetRegisterValue(r_type_instr.rs1);
+    Register rs2_value = GetRegisterValue(r_type_instr.rs2);
+
+    Register result = 0;
+
+    const size_t shift_mask_width = 5;
+    const Register shift_mask = 0b1'1111;
+
+    ArithmRegInstructionSpecial funct7_arithm = static_cast<ArithmRegInstructionSpecial>(r_type_instr.funct7);
+
     switch (static_cast<ArithmRegInstruction>(r_type_instr.funct3)) {
-        case ArithmRegInstruction::kAddSub: return InstructionArithmRegAddSub(r_type_instr);
-        case ArithmRegInstruction::kSll:    return ;
-        case ArithmRegInstruction::kSlt:    return ;
-        case ArithmRegInstruction::kSltu:   return ;
-        case ArithmRegInstruction::kXor:    return ;
-        case ArithmRegInstruction::kSrlSra: return ;
-        case ArithmRegInstruction::kOr:     return ;
-        case ArithmRegInstruction::kAnd:    return ;
+        case ArithmRegInstruction::kAddSub: {
+            switch (funct7_arithm) {
+                case ArithmRegInstructionSpecial::kAdd:
+                    result = rs1_value + rs2_value;
+                    break;
+                case ArithmRegInstructionSpecial::kSub:
+                    result = rs1_value - rs2_value;
+                    break;
+                default:
+                    Log("Unknown instrucion\n");
+                    return InstructionError::kUnknownInstruction;
+            }
+        }
+        break;
+
+        case ArithmRegInstruction::kSll:
+            result = rs1_value << (rs2_value & shift_mask);
+            break;
+
+        case ArithmRegInstruction::kSlt:
+            result = RegToIReg(rs1_value) < RegToIReg(rs2_value) ? 1 : 0; 
+            break;
+
+        case ArithmRegInstruction::kSltu:
+            result = rs1_value < rs2_value ? 1 : 0;
+            break;
+
+        case ArithmRegInstruction::kXor:
+            result = rs1_value ^ rs2_value;
+            break;
+
+        case ArithmRegInstruction::kSrlSra: {
+            switch (static_cast<ArithmImmShiftRight>(funct7_arithm)) {
+                case ArithmImmShiftRight::kArithm:
+                    result = ArithmRightShift(rs1_value, rs2_value & shift_mask);
+                    break;
+                case ArithmImmShiftRight::kLogical:
+                    result = rs1_value >> (rs2_value & shift_mask);
+                    break;
+                default:
+                    Log("unknown instrucion\n");
+                    return InstructionError::kUnknownInstruction;
+            }
+        }
+        break;
+
+        case ArithmRegInstruction::kOr:
+            result = rs1_value | rs2_value;
+            break;
+
+        case ArithmRegInstruction::kAnd:            
+            result = rs1_value & rs2_value;
+            break;
 
         default:
-            Log("Unknown funct3 value\n");
+            Log("Unknown instrucion value\n");
             return InstructionError::kUnknownInstruction;      
     }
 
-    assert(0 && "Unimplemented");
+    SetRegisterValue(r_type_instr.rd, result);
+
+    pc_ += sizeof(Register);
 
     return InstructionError::kOk;
 }
@@ -435,7 +582,11 @@ InstructionError Cpu::InstructionFenceInstr(const Register instr) {
 InstructionError Cpu::InstructionSystemInstr(const Register instr) {
     LogFunctionEntry();
 
-    assert(0 && "Unimplemented");
+    ITypeInstr i_type_instr = GetITypeInstr(instr);
+
+    Log("Fuck my ass\n");
+
+    SetIsFinished(true);
 
     return InstructionError::kOk;
 }
@@ -443,7 +594,7 @@ InstructionError Cpu::InstructionSystemInstr(const Register instr) {
 // static ---------------------------------------------------------------------
 
 static RTypeInstr GetRTypeInstr(const Register instr) {
-    LogFunctionEntry();
+    // LogFunctionEntry();
 
     RTypeInstr r_type_instr = {};
     std::memcpy(&r_type_instr, &instr, sizeof(instr));
@@ -460,7 +611,7 @@ static RTypeInstr GetRTypeInstr(const Register instr) {
 }
 
 static ITypeInstr GetITypeInstr(const Register instr) {
-    LogFunctionEntry();
+    // LogFunctionEntry();
 
     ITypeInstr i_type_instr = {};
     std::memcpy(&i_type_instr, &instr, sizeof(instr));
@@ -475,7 +626,7 @@ static ITypeInstr GetITypeInstr(const Register instr) {
 }
 
 static STypeInstr GetSTypeInstr(const Register instr) {
-    LogFunctionEntry();
+    // LogFunctionEntry();
 
     STypeInstr s_type_instr = {};
     std::memcpy(&s_type_instr, &instr, sizeof(instr));
@@ -491,7 +642,7 @@ static STypeInstr GetSTypeInstr(const Register instr) {
 }
 
 static BTypeInstr GetBTypeInstr(const Register instr) {
-    LogFunctionEntry();
+    // LogFunctionEntry();
 
     BTypeInstr b_type_instr = {};
     std::memcpy(&b_type_instr, &instr, sizeof(instr));
@@ -509,7 +660,7 @@ static BTypeInstr GetBTypeInstr(const Register instr) {
 }
 
 static UTypeInstr GetUTypeInstr(const Register instr) {
-    LogFunctionEntry();
+    // LogFunctionEntry();
 
     UTypeInstr u_type_instr = {};
     std::memcpy(&u_type_instr, &instr, sizeof(instr));
@@ -522,7 +673,7 @@ static UTypeInstr GetUTypeInstr(const Register instr) {
 }
 
 static JTypeInstr GetJTypeInstr(const Register instr) {
-    LogFunctionEntry();
+    // LogFunctionEntry();
 
     JTypeInstr j_type_instr = {};
     std::memcpy(&j_type_instr, &instr, sizeof(instr));
@@ -538,7 +689,7 @@ static JTypeInstr GetJTypeInstr(const Register instr) {
 }
 
 static IRegister SignExtension(const Register uvalue, const size_t starting_bit) {
-    LogFunctionEntry();
+    // LogFunctionEntry();
     
     static_assert(sizeof(Register) == sizeof(IRegister), "Register and IRegister have different sizes");
 
@@ -556,13 +707,13 @@ static IRegister SignExtension(const Register uvalue, const size_t starting_bit)
     
     IRegister value = RegToIReg(res);
 
-    LogVariable("%x", value);
+    LogVariable("0x%x", static_cast<uint32_t>(value));
 
     return value;
 }
 
 static IRegister RegToIReg(const Register uvalue) {
-    LogFunctionEntry();
+    // LogFunctionEntry();
 
     IRegister value = 0;
 
@@ -573,7 +724,7 @@ static IRegister RegToIReg(const Register uvalue) {
 }
 
 static Register IRegToReg(const IRegister value) {
-    LogFunctionEntry();
+    // LogFunctionEntry();
 
     Register uvalue = 0;
 
@@ -597,177 +748,23 @@ static Register ArithmRightShift(const Register value, const size_t shift) {
     return new_value;
 }
 
-// --------------------
+static const char* OpcodeToInstrMnemotic(InstructionOpcodes instr_opcode) {
+    // LogFunctionEntry();
 
-InstructionError Cpu::InstructionArithmImmAddi(const ITypeInstr i_type_instr) {
-    LogFunctionEntry();
-
-    const size_t imm_size_bit = 12; // bit
-    IRegister imm = SignExtension(i_type_instr.imm, imm_size_bit - 1);
-    IRegister reg_value = RegToIReg(GetRegisterValue(i_type_instr.rs1));
-
-    Register uresult = IRegToReg(reg_value + imm);
-
-    SetRegisterValue(i_type_instr.rd, uresult);
-    
-    pc_ += sizeof(Register);
-
-    return InstructionError::kOk;
-}
-
-InstructionError Cpu::InstructionArithmImmSlti(const ITypeInstr i_type_instr) {
-    LogFunctionEntry();
-
-    const size_t imm_size_bit = 12; // bit
-    IRegister imm = SignExtension(i_type_instr.imm, imm_size_bit - 1);
-    IRegister reg_value = RegToIReg(GetRegisterValue(i_type_instr.rs1));
-
-    Register uresult = reg_value < imm ? 1 : 0;
-
-    SetRegisterValue(i_type_instr.rd, uresult);
-    
-    pc_ += sizeof(Register);
-   
-    return InstructionError::kOk;
-}
-
-InstructionError Cpu::InstructionArithmImmSltiu(const ITypeInstr i_type_instr) {
-    LogFunctionEntry();
-
-    const size_t imm_size_bit = 12; // bit
-    Register uimm = IRegToReg(SignExtension(i_type_instr.imm, imm_size_bit - 1));
-    Register ureg_value = GetRegisterValue(i_type_instr.rs1);
-
-    Register uresult = ureg_value < uimm ? 1 : 0;
-
-    SetRegisterValue(i_type_instr.rd, uresult);
-
-    pc_ += sizeof(Register);
-
-    return InstructionError::kOk;
-}
-
-InstructionError Cpu::InstructionArithmImmXori(const ITypeInstr i_type_instr) {
-    LogFunctionEntry();
-
-    const size_t imm_size_bit = 12; // bit
-    IRegister imm = SignExtension(i_type_instr.imm, imm_size_bit - 1);
-    IRegister reg_value = RegToIReg(GetRegisterValue(i_type_instr.rs1));
-
-    Register uresult = IRegToReg(reg_value ^ imm);
-
-    SetRegisterValue(i_type_instr.rd, uresult);
-
-    pc_ += sizeof(Register);
-
-    return InstructionError::kOk;
-}
-
-InstructionError Cpu::InstructionArithmImmOri(const ITypeInstr i_type_instr) {
-    LogFunctionEntry();
-
-    const size_t imm_size_bit = 12; // bit
-    IRegister imm = SignExtension(i_type_instr.imm, imm_size_bit - 1);
-    IRegister reg_value = RegToIReg(GetRegisterValue(i_type_instr.rs1));
-
-    Register uresult = IRegToReg(reg_value | imm);
-
-    SetRegisterValue(i_type_instr.rd, uresult);
-
-    pc_ += sizeof(Register);
-
-    return InstructionError::kOk;
-}
-
-InstructionError Cpu::InstructionArithmImmAndi(const ITypeInstr i_type_instr) {
-    LogFunctionEntry();
-
-    const size_t imm_size_bit = 12; // bit
-    IRegister imm = SignExtension(i_type_instr.imm, imm_size_bit - 1);
-    IRegister reg_value = RegToIReg(GetRegisterValue(i_type_instr.rs1));
-
-    Register uresult = IRegToReg(reg_value & imm);
-
-    SetRegisterValue(i_type_instr.rd, uresult);
-
-    pc_ += sizeof(Register);
-
-    return InstructionError::kOk;
-}
-
-InstructionError Cpu::InstructionArithmImmSlli(const ITypeInstr i_type_instr) {
-    LogFunctionEntry();
-
-    const size_t shmat_width = 5;
-    if ((i_type_instr.imm >> shmat_width) != 0) { return InstructionError::kUnknownInstruction; }
-
-    const Register shmat_mask = 0b1'1111; 
-    Register shmat = i_type_instr.imm & shmat_mask;
-
-    Register shift_result = GetRegisterValue(i_type_instr.rs1) << shmat;
-    SetRegisterValue(i_type_instr.rd, shift_result);
-
-    return InstructionError::kOk;
-}
-
-InstructionError Cpu::InstructionArithmImmSraiSrli(const ITypeInstr i_type_instr) {
-    LogFunctionEntry(); // arithm shift fills with msb
-
-    const size_t shmat_width = 5;
-    ArithmImmShiftRight shift_type = static_cast<ArithmImmShiftRight>(i_type_instr.imm >> shmat_width);
-
-    const Register shmat_mask = 0b1'1111;
-    Register shmat = i_type_instr.imm & shmat_mask;
-
-    Register shift_result = 0;
-    Register rs1_value = GetRegisterValue(i_type_instr.rs1);
-
-    switch (shift_type) {
-        case ArithmImmShiftRight::kArithm:  {
-            shift_result = rs1_value >> shmat;
-        } 
-        break;
-
-        case ArithmImmShiftRight::kLogical: {
-            shift_result = ArithmRightShift(rs1_value, shmat); 
-        } 
-        break;
-
+    switch (instr_opcode) {
+        case InstructionOpcodes::kUnknown:          return TO_STR(InstructionOpcodes::kUnknown);
+        case InstructionOpcodes::kLui:              return TO_STR(InstructionOpcodes::kLui);
+        case InstructionOpcodes::kAuipc:            return TO_STR(InstructionOpcodes::kAuipc);
+        case InstructionOpcodes::kJal:              return TO_STR(InstructionOpcodes::kJal);
+        case InstructionOpcodes::kJalr:             return TO_STR(InstructionOpcodes::kJalr);
+        case InstructionOpcodes::kBranchInstr:      return TO_STR(InstructionOpcodes::kBranchInstr);
+        case InstructionOpcodes::kLoadInstr:        return TO_STR(InstructionOpcodes::kLoadInstr);
+        case InstructionOpcodes::kStoreInstr:       return TO_STR(InstructionOpcodes::kStoreInstr);
+        case InstructionOpcodes::kArithmImmInstr:   return TO_STR(InstructionOpcodes::kArithmImmInstr);
+        case InstructionOpcodes::kArithmRegInstr:   return TO_STR(InstructionOpcodes::kArithmRegInstr);
+        case InstructionOpcodes::kFenceInstr:       return TO_STR(InstructionOpcodes::kFenceInstr);
+        case InstructionOpcodes::kSystemInstr:      return TO_STR(InstructionOpcodes::kSystemInstr);
         default:
-            Log("Unknown instrucion\n");
-            return InstructionError::kUnknownInstruction;
+            return "<unknown instruction>";
     }
-
-    SetRegisterValue(i_type_instr.rd, shift_result);
-
-    return InstructionError::kOk;
-}
-
-// ----------------------
-
-InstructionError Cpu::InstructionArithmRegAddSub(const RTypeInstr r_type_instr) {
-    LogFunctionEntry();
-
-    IRegister reg1 = RegToIReg(GetRegisterValue(r_type_instr.rs1));
-    IRegister reg2 = RegToIReg(GetRegisterValue(r_type_instr.rs2));
-
-    IRegister result = 0;
-    switch (static_cast<ArithmRegInstructionSpecial>(r_type_instr.funct7)) {
-        case ArithmRegInstructionSpecial::kAdd:
-            result = reg1 + reg2;
-            break;
-        case ArithmRegInstructionSpecial::kSub:
-            result = reg1 - reg2;
-            break;
-        
-        default:
-            Log("Unknown funct7 value\n");
-            return InstructionError::kUnknownInstruction;
-    }
-
-    SetRegisterValue(r_type_instr.rd, IRegToReg(result));
-
-    pc_ += sizeof(Register);
-
-    return InstructionError::kOk;
 }
