@@ -9,7 +9,11 @@ using IRegister = int32_t;
 using Address = uint32_t;
 
 static const size_t kNumberOfRegisters = 32; 
-static const size_t kMemorySize = 0x400'000;
+
+const size_t kRetAddrIndex = 1;
+const size_t kStackPointerIndex = 2;
+
+const size_t kStartingReturnAddress = 0xDED;
 
 enum class CpuErrors {
     kOk            = 0,

@@ -1,1 +1,1 @@
--D --disassembler-color=on -g -S -z -Z -x --show-all-symbols
+-D --disassembler-color=terminal -g -S -z -Z -x --show-all-symbols -Mnumeric -Mno-aliases

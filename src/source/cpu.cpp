@@ -35,12 +35,12 @@ static const char* OpcodeToInstrMnemotic(InstructionOpcodes instr_opcode);
 Register Cpu::Fetch() {
     LogFunctionEntry();
 
-    if (pc_ == 0xDED) {
+    if (pc_ == kStartingReturnAddress) {
         is_finished_ = true;
         return 0;
     }
 
-    if (pc_ >= kMemorySize) {
+    if (pc_ >= memory_.GetMemorySize()) {
         is_finished_ = true;
         return 0;
     }
@@ -70,17 +70,17 @@ InstructionError Cpu::Execute(const Register instr, const InstructionOpcodes opc
     LogVariable("0x%x", static_cast<Register>(opcode));
 
     switch (opcode) {
-        case InstructionOpcodes::kLui:            return InstructionLui(instr); // +
-        case InstructionOpcodes::kAuipc:          return InstructionAuipc(instr); // +
-        case InstructionOpcodes::kJal:            return InstructionJal(instr); // +
-        case InstructionOpcodes::kJalr:           return InstructionJalr(instr); // +
-        case InstructionOpcodes::kBranchInstr:    return InstructionBranchInstr(instr); // +
-        case InstructionOpcodes::kLoadInstr:      return InstructionLoadInstr(instr); // +
-        case InstructionOpcodes::kStoreInstr:     return InstructionStoreInstr(instr); // +
+        case InstructionOpcodes::kLui:            return InstructionLui(instr);            // +
+        case InstructionOpcodes::kAuipc:          return InstructionAuipc(instr);          // +
+        case InstructionOpcodes::kJal:            return InstructionJal(instr);            // +
+        case InstructionOpcodes::kJalr:           return InstructionJalr(instr);           // +
+        case InstructionOpcodes::kBranchInstr:    return InstructionBranchInstr(instr);    // +
+        case InstructionOpcodes::kLoadInstr:      return InstructionLoadInstr(instr);      // +
+        case InstructionOpcodes::kStoreInstr:     return InstructionStoreInstr(instr);     // +
         case InstructionOpcodes::kArithmImmInstr: return InstructionArithmImmInstr(instr); // +
-        case InstructionOpcodes::kArithmRegInstr: return InstructionArithmRegInstr(instr); 
-        case InstructionOpcodes::kFenceInstr:     return InstructionFenceInstr(instr);
-        case InstructionOpcodes::kSystemInstr:    return InstructionSystemInstr(instr);
+        case InstructionOpcodes::kArithmRegInstr: return InstructionArithmRegInstr(instr); // +
+        case InstructionOpcodes::kFenceInstr:     return InstructionFenceInstr(instr);     // FIXME Unimplemented
+        case InstructionOpcodes::kSystemInstr:    return InstructionSystemInstr(instr);    // FIXME support syscalls
 
         default:
             Log("unknown instrucion\n");
@@ -96,13 +96,10 @@ Cpu::Cpu(const ELFIO::elfio& elf)
     LogFunctionEntry();
 
     memset(registers_, 0, sizeof(registers_));
-    const size_t kStackPointerIndex = 2;
-    registers_[kStackPointerIndex] = memory_.GetMemorySize() - sizeof(Register);
-
-    const size_t kRetAddrIndex = 1;
-    registers_[kRetAddrIndex] = 0xDED;
+    registers_[kStackPointerIndex] = static_cast<Register>(memory_.GetMemorySize() - sizeof(Register));
+    registers_[kRetAddrIndex] = kStartingReturnAddress;
  
-    pc_ = elf.get_entry();
+    pc_ = static_cast<Register>(elf.get_entry());
     is_finished_ = false;
 }
 
@@ -154,18 +151,6 @@ void Cpu::SetIsFinished(const bool is_finished) {
     is_finished_ = is_finished;
 }
 
-// Register Cpu::ReadFromMemory(const Address address) const {
-//     LogFunctionEntry();
-
-//     return memory_.ReadFromMemory(address);
-// }
-
-// void Cpu::WriteToMemory(const Register data, const Address address) {
-//     LogFunctionEntry();
-
-//     memory_.WriteToMemory(data, address);
-// }
-
 void Cpu::Dump() const {
     LogFunctionEntry();
 
@@ -197,6 +182,8 @@ void Cpu::ExecuteBin() {
         Register instr = Fetch();
         InstructionOpcodes instruction = Decode(instr);
         InstructionError instr_error = Execute(instr, instruction);
+        // assert(instr_error == InstructionError::kOk);
+
         LogVariable("%u", static_cast<Register>(instr_error));
 
         Dump(); // FIXME
