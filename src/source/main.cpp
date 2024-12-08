@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "elfio/elfio.hpp"
+#include "asmjit/asmjit.h"
 
 #include "logger.hpp"
 

@@ -10,7 +10,8 @@ using Address = uint32_t;
 
 static const size_t kNumberOfRegisters = 32; 
 
-const size_t kRetAddrIndex = 1;
+const size_t kMachineZeroIndex  = 0;
+const size_t kRetAddrIndex      = 1;
 const size_t kStackPointerIndex = 2;
 
 const size_t kStartingReturnAddress = 0xDED;

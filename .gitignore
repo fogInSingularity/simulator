@@ -10,3 +10,4 @@ makefile
 compile_commands.json
 riscv_bin
 test/*.out
+CMakeFiles

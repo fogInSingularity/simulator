@@ -22,7 +22,7 @@ static size_t GetFileSize(FILE* file);
 Memory::Memory(const ELFIO::elfio& elf) {
     LogFunctionEntry();
 
-    memory_ = 0;
+    memory_ = nullptr;
     memory_size_ = 0;
 
     // FIXME make better memory mapping 
@@ -47,35 +47,6 @@ Memory::Memory(const ELFIO::elfio& elf) {
             std::memcpy(&memory_[start_addr], segment->get_data(), segment->get_file_size());
         }
     }
-
-    // memory_ = new uint8_t[kMemorySize]{};
-
-    // FILE* executable_file = fopen(executable_name, "rb");
-    // if (executable_file == nullptr) {
-    //     delete memory_;
-    //     memory_ = nullptr;
-    //     Log("cant open %s\n", TO_STR(executable_file));
-    //     LogVariable("%s", executable_name);
-
-    //     throw CpuErrors::kBadExecutable;
-    // }
-
-    // size_t file_size = GetFileSize(executable_file);
-    // LogVariable("%lu", file_size);
-    // executable_size_ = file_size;
-
-    // if (file_size >= kMemorySize) {
-    //     delete memory_;
-    //     memory_ = nullptr;
-    //     fclose(executable_file);
-    //     throw CpuErrors::kBadExecutable;
-    // }
-    // size_t readed = fread(memory_, sizeof(uint8_t), file_size, executable_file);
-    // LogVariable("%lu", readed);
-
-    // fclose(executable_file);
-    //
-    //
 }
 
 Memory::~Memory() {

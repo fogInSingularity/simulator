@@ -8,6 +8,8 @@
 
 #include "elfio/elfio.hpp"
 
+
+
 #include "logger.hpp"
 
 #include "cpu_defs.hpp"
@@ -120,7 +122,7 @@ Register Cpu::GetRegisterValue(const size_t register_id) const {
 
     LogFunctionEntry();
 
-    if (register_id == 0) {
+    if (register_id == kMachineZeroIndex) {
         return 0;
     }
 
@@ -132,7 +134,7 @@ void Cpu::SetRegisterValue(const size_t register_id, const Register new_value) {
 
     LogFunctionEntry();
 
-    if (register_id == 0) { // NOTE mb use constant for x0
+    if (register_id == kMachineZeroIndex) {
         return ;
     } 
 
@@ -197,7 +199,6 @@ InstructionError Cpu::InstructionLui(const Register instr) {
 
     UTypeInstr u_type_instr = GetUTypeInstr(instr);
     Register result = static_cast<Register>(u_type_instr.imm) << 12u; // read docs
-    // NOTE
 
     SetRegisterValue(u_type_instr.rd, result);
     
@@ -211,7 +212,6 @@ InstructionError Cpu::InstructionAuipc(const Register instr) {
 
     UTypeInstr u_type_instr = GetUTypeInstr(instr);
     Register result = static_cast<Register>(u_type_instr.imm) << 12; // read docs
-    // NOTE
 
     SetRegisterValue(u_type_instr.rd, result + pc_);
     
@@ -302,7 +302,7 @@ InstructionError Cpu::InstructionBranchInstr(const Register instr) {
     const size_t imm_size_bit = 12; // bit
     Register pc_offset = IRegToReg(SignExtension(offset, imm_size_bit - 1));
     LogVariable("%u", pc_offset);
-    pc_ += pc_offset; // NOTE i dont know why +4
+    pc_ += pc_offset;
     return InstructionError::kOk;
 }
 
