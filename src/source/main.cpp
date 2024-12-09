@@ -5,7 +5,6 @@
 #include <iostream>
 
 #include "elfio/elfio.hpp"
-#include "asmjit/asmjit.h"
 
 #include "logger.hpp"
 
@@ -23,7 +22,7 @@ int main(const int argc, const char* const argv[]) {
         std::cerr << "Error: cant load executable" << std::endl;
         return EXIT_FAILURE;
     }
-
+ 
     Cpu cpu(elf);
 
     cpu.Dump();
@@ -31,5 +30,9 @@ int main(const int argc, const char* const argv[]) {
     cpu.ExecuteBin();
 
     cpu.Dump();
+
+    Log("Execution ended");
+
+    return EXIT_SUCCESS;
 }
 

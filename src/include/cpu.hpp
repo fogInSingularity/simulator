@@ -9,6 +9,11 @@
 #include "cpu_memory.hpp"
 #include "instructions.hpp"
 
+struct BasicBlock {
+    size_t size;
+    void (*func)();
+};
+
 class Cpu {
   private:
     Register pc_;
@@ -45,9 +50,6 @@ class Cpu {
 
     bool GetIsFinished() const;
     void SetIsFinished(const bool is_finished);
-
-    // Register ReadFromMemory(const Address address) const;
-    // void WriteToMemory(const Register data, const Address address);
 
     void Dump() const;
     

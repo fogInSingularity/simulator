@@ -31,18 +31,18 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(cmake/CPM.cmake)
 
-CPMAddPackage(
-  NAME asmjit
-  GITHUB_REPOSITORY asmjit/asmjit
-  GIT_TAG 0b3aec39d18a98a87449f031a469b60aedae1a9b
-  OPTIONS "ASMJIT_STATIC TRUE"
-)
-if(asmjit_ADDED)
-    target_link_libraries(simulator PRIVATE asmjit)
-    # add_library(asmjit INTERFACE IMPORTED)
-    # message(STATUS "asmjit src dir: ${asmjit_SOURCE_DIR}")
-    target_include_directories(simulator PUBLIC "${asmjit_SOURCE_DIR}/src")
-endif()
+# CPMAddPackage(
+#   NAME asmjit
+#   GITHUB_REPOSITORY asmjit/asmjit
+#   GIT_TAG 0b3aec39d18a98a87449f031a469b60aedae1a9b
+#   OPTIONS 
+#     "ASMJIT_STATIC TRUE"
+# )
+# if(asmjit_ADDED)
+#     target_link_libraries(simulator PRIVATE asmjit)
+#     # message(STATUS "asmjit src dir: ${asmjit_SOURCE_DIR}")
+#     target_include_directories(simulator PUBLIC "${asmjit_SOURCE_DIR}/src")
+# endif()
 
 
 CPMAddPackage(

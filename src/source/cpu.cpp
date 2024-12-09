@@ -8,8 +8,6 @@
 
 #include "elfio/elfio.hpp"
 
-
-
 #include "logger.hpp"
 
 #include "cpu_defs.hpp"
@@ -92,7 +90,7 @@ InstructionError Cpu::Execute(const Register instr, const InstructionOpcodes opc
 
 // Cpu public -----------------------------------------------------------------
 
-Cpu::Cpu(const ELFIO::elfio& elf) 
+Cpu::Cpu(const ELFIO::elfio& elf)
     : memory_(elf)
 {
     LogFunctionEntry();
