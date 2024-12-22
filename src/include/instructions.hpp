@@ -1,9 +1,12 @@
 #ifndef INSTRUCTIONS_HPP_
 #define INSTRUCTIONS_HPP_
 
-#include "cpu_defs.hpp"
+// #include "cpu_defs.hpp"
+#include "sim_cfg.hpp"
 
-static const Register kOpcodeMask = 0b111'1111;
+namespace sim {
+
+static const sim::Register kOpcodeMask = 0b111'1111;
 
 struct RTypeInstr {
     Register opcode : 7;
@@ -128,7 +131,8 @@ enum class FenceInstruction : Register {
 };
 
 enum class SystemInstruction : Register {
-    // FIXME 
+    kScallSbreak = 0b000,
+    kSread       = 0b010, 
 };
 
 // funct7 ---------------------------------------------------------------------
@@ -146,17 +150,123 @@ enum class ArithmRegInstructionSpecial : Register {
     kAnd  = 0b000'0000,
 };
 
-enum ArithmImmShiftRight : Register {
+enum class ArithmImmShiftRight : Register {
     kLogical = 0b000'0000,
     kArithm  = 0b010'0000,
 };
 
-// Errors ---------------------------------------------------------------------
-
-enum class InstructionError {
-    kOk                 = 0,
-    kUnknownInstruction = 1,
-    kMisalignedAddress  = 2,
+enum class SystemInstructionSpecial : Register {
+    // imm
+    kScall  = 0b0000'0000'0000,
+    kSbreak = 0b0000'0000'0001,
 };
+
+// decode
+
+enum class InstrType {
+    Uninit = 0,
+    RType  = 1,
+    IType  = 2,
+    SType  = 3,
+    BType  = 4,
+    UType  = 5,
+    JType  = 6,
+};
+
+enum class InstructionMnemonic {
+    kUnkownMnem = 0,
+    kLui        = 1,
+    kAuipc      = 2,
+    kJal        = 3,
+    kJalr       = 4,
+    kBeq        = 5,
+    kBne        = 6,
+    kBlt        = 7,
+    kBge        = 8,
+    kBltu       = 9,
+    kBgeu       = 10,
+    kLb         = 11,
+    kLh         = 12,
+    kLw         = 13,
+    kLbu        = 14,
+    kLhu        = 15,
+    kSb         = 16,
+    kSh         = 17,
+    kSw         = 18,
+    kAddi       = 19,
+    kSlti       = 20,
+    kSltiu      = 21,
+    kXori       = 22,
+    kOri        = 23,
+    kAndi       = 24,
+    kSlli       = 25,
+    kSrli       = 26,
+    kSrai       = 27,
+    kAdd        = 28,
+    kSub        = 29,
+    kSlt        = 30,
+    kSltu       = 31,
+    kXor        = 32,
+    kOr         = 33,
+    kAnd        = 34,
+    kSll        = 35,
+    kSrl        = 36,
+    kSra        = 37,
+    kFence      = 38,
+    kFence_i    = 39,
+    kScall      = 40,
+    kSbreak     = 41,
+    /// FIXME
+};
+
+struct DecodedInstr {
+    InstrType instr_type;
+
+    InstructionOpcodes opcode;
+    InstructionMnemonic instr_mnem; 
+
+    union {
+        struct {
+            Register rd;
+            Register rs1;
+            Register rs2;
+        } r_type;
+
+        struct {
+            Register rd;
+            Register rs1;
+            Register imm;
+            size_t imm_size_bit;
+        } i_type;
+
+        struct {
+            Register rs1;
+            Register rs2;
+            Register imm;
+            size_t imm_size_bit;
+        } s_type;
+
+        struct {
+            Register rs1;
+            Register rs2;
+            Register imm;
+            size_t imm_size_bit;
+        } b_type;
+
+        struct {
+            Register rd;
+            Register imm;
+            size_t imm_size_bit;
+        } u_type;
+
+        struct {
+            Register rd;
+            Register imm;
+            size_t imm_size_bit;
+        } j_type;
+    } instr;
+};
+
+}; // namespace sim
 
 #endif // INSTRUCTIONS_HPP_
