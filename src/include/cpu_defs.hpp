@@ -56,6 +56,7 @@ enum class TranslateError {
 const size_t kSyscallIdRegister = RegisterAliases::kArgument7;
 
 enum SyscallIds {
+    kRead = 63,
     kWrite = 64,
     kExit = 93,
 };

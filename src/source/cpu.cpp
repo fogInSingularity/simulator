@@ -40,6 +40,15 @@ InstructionError Cpu::SyscallHandler() {
 
     Register syscall_id = registers_[kSyscallIdRegister];
     switch (syscall_id) {
+        case SyscallIds::kRead: {
+            Register fd_to_read = GetRegisterValue(RegisterAliases::kArgument0);
+            uint8_t* buffer = memory_->GetData() + GetRegisterValue(RegisterAliases::kArgument1);
+            size_t buffer_size = GetRegisterValue(RegisterAliases::kArgument2);
+           
+            ssize_t ret_value = read(fd_to_read, buffer, buffer_size);
+            SetRegisterValue(RegisterAliases::kArgument0, ret_value);
+        }
+        break;
         case SyscallIds::kWrite: {
             Register fd_to_write = GetRegisterValue(RegisterAliases::kArgument0);
             uint8_t* buffer = memory_->GetData() + GetRegisterValue(RegisterAliases::kArgument1);
