@@ -6,6 +6,10 @@
 
 namespace sim {
 
+// source of rv32i isa:
+// https://msyksphinz-self.github.io/riscv-isadoc/html/index.html
+// https://www2.eecs.berkeley.edu/Pubs/TechRpts/2016/EECS-2016-118.pdf
+
 static const sim::Register kOpcodeMask = 0b111'1111;
 
 struct RTypeInstr {
